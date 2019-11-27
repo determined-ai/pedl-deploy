@@ -3,12 +3,10 @@
 ## Install
 1. Clone the repository
 
-2. 
-```commandline
-cd ped-deploy
-pip install .
-```
-
+2. ```commandline
+   cd ped-deploy
+   pip install .
+   ```
 
 ## Deploy PEDL to AWS
 ```commandline
