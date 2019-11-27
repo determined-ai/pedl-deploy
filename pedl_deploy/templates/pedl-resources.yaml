@@ -241,10 +241,7 @@ Resources:
   CheckpointBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName:
-        !Sub
-        - '${EnvironmentName}-${AWS::Region}-${AWS::AccountId}'
-        - { EnvironmentName: !Ref EnvironmentName }
+      BucketName: !Sub ${EnvironmentName}-${AWS::Region}-${AWS::AccountId}
 
 Outputs:
   BastionId:
