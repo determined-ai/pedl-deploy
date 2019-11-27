@@ -1,0 +1,271 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: PEDL Template
+Parameters:
+  EnvironmentName:
+    Description: An environment name that is prefixed to resource names
+    Type: String
+
+  Keypair:
+    Description: Keypair for resources
+    Type: String
+
+  VPC:
+    Description: PEDL VPC
+    Type: String
+
+  PublicSubnetId:
+    Description: ID for public subnet
+    Type: String
+
+  PrivateSubnetId:
+    Description: ID for public subnet
+    Type: String
+
+  BastionAmiId:
+    Type: String
+    Description: AMI Id for Bastion
+
+  MasterAmiId:
+    Type: String
+    Description: AMI Id for Master
+
+Resources:
+  BastionSecurityGroupSSH:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt BastionSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 0.0.0.0/0
+
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group For Bastion
+      VpcId: !Ref VPC
+      Tags:
+        - Key: user
+          Value: !Ref EnvironmentName
+
+  MasterSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt MasterSecurityGroup.GroupId
+      DestinationSecurityGroupId: !GetAtt AgentSecurityGroup.GroupId
+      FromPort: 0
+      ToPort: 65535
+      IpProtocol: tcp
+
+  MasterSecurityGroupInternet:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt MasterSecurityGroup.GroupId
+      CidrIp: 0.0.0.0/0
+      FromPort: 0
+      ToPort: 65535
+      IpProtocol: tcp
+
+  MasterSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt MasterSecurityGroup.GroupId
+      FromPort: 8080
+      ToPort: 8080
+      IpProtocol: tcp
+      SourceSecurityGroupId: !GetAtt AgentSecurityGroup.GroupId
+
+  MasterSecurityGroupIngressUI:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt MasterSecurityGroup.GroupId
+      FromPort: 8080
+      ToPort: 8080
+      IpProtocol: tcp
+      SourceSecurityGroupId: !GetAtt BastionSecurityGroup.GroupId
+
+  MasterSSHIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt MasterSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !GetAtt BastionSecurityGroup.GroupId
+
+  AgentSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt AgentSecurityGroup.GroupId
+      CidrIp: 0.0.0.0/0
+      FromPort: 0
+      ToPort: 65535
+      IpProtocol: tcp
+
+  AgentSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt AgentSecurityGroup.GroupId
+      FromPort: 0
+      ToPort: 65535
+      IpProtocol: tcp
+      SourceSecurityGroupId: !GetAtt MasterSecurityGroup.GroupId
+
+  AgentSSHIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt AgentSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !GetAtt BastionSecurityGroup.GroupId
+
+  MasterSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group For Master
+      VpcId: !Ref VPC
+      Tags:
+        - Key: user
+          Value: !Ref EnvironmentName
+
+  AgentSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group For Agent
+      VpcId: !Ref VPC
+      Tags:
+        - Key: user
+          Value: !Ref EnvironmentName
+
+  BastionEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref BastionAmiId
+      KeyName: !Ref Keypair
+      SubnetId: !Ref PublicSubnetId
+      SecurityGroupIds:
+        - !Ref BastionSecurityGroup
+      Tags:
+        - Key: user
+          Value: !Ref EnvironmentName
+
+  AgentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: agent-s3-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: "s3:*"
+                Resource: "*"
+
+  AgentInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref AgentRole
+
+  MasterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: pedl-agent-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:TerminateInstances
+                  - ec2:CreateTags
+                  - ec2:RunInstances
+                Resource: "*"
+        - PolicyName: pass-role
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt AgentRole.Arn
+      Tags:
+        - Key: user
+          Value: !Ref EnvironmentName
+
+  MasterInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref MasterRole
+
+  MasterInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      SubnetId: !Ref PrivateSubnetId
+      InstanceType: t2.medium
+      ImageId: !Ref MasterAmiId
+      KeyName: !Ref Keypair
+      IamInstanceProfile: !Ref MasterInstanceProfile
+      SecurityGroupIds:
+        - !Ref MasterSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 200
+            VolumeType: gp2
+      Tags:
+        - Key: user
+          Value: !Ref EnvironmentName
+
+  CheckpointBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        !Sub
+        - '${EnvironmentName}-${AWS::Region}-${AWS::AccountId}'
+        - { EnvironmentName: !Ref EnvironmentName }
+
+Outputs:
+  BastionId:
+    Description: Id of Bastion
+    Value: !Ref BastionEC2Instance
+
+  MasterId:
+    Description: Id of Master
+    Value: !Ref MasterInstance
+
+  AgentSecurityGroupId:
+    Description: Id of Agent Security Group
+    Value: !Ref AgentSecurityGroup
+
+  AgentInstanceProfile:
+    Description: Instance Profile for Agent
+    Value: !GetAtt AgentInstanceProfile.Arn
+
+  CheckpointBucket:
+    Description: S3 Bucket for checkpoints
+    Value: !Ref CheckpointBucket
+
+
+
