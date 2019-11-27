@@ -23,7 +23,7 @@ def stack_exists(stack_name):
 
 
 def delete_stack(stack_name):
-    print(f'{stack_name} found. Deleting Stack')
+    print(f'Deleting stack {stack_name}')
     cfn.delete_stack(StackName=stack_name)
     try:
         delete_waiter.wait(StackName=stack_name,
@@ -36,8 +36,7 @@ def delete_stack(stack_name):
 
 
 def update_stack(stack_name, template_body, parameters=None):
-
-    validate_stack(template_body)
+    print(f'Updating stack {stack_name}')
 
     try:
         if parameters:
@@ -77,9 +76,7 @@ def update_stack(stack_name, template_body, parameters=None):
 
 
 def create_stack(stack_name, template_body, parameters=None):
-
-    validate_stack(template_body)
-
+    print(f'Creating stack {stack_name}')
     if parameters:
         cfn.create_stack(
             StackName=stack_name,

@@ -26,6 +26,7 @@ class cloudformation:
     AGENT_SECURITY_GROUP_ID_KEY = 'AgentSecurityGroupId'
     MASTER_ID = 'MasterId'
     BASTION_ID = 'BastionId'
+    CHECKPOINT_BUCKET = 'CheckpointBucket'
 
 
 class resources:

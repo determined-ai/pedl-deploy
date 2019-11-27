@@ -4,7 +4,6 @@ import boto3
 
 
 ec2 = boto3.client('ec2')
-sts = boto3.client('sts')
 
 
 def get_ec2_info(instance_id):

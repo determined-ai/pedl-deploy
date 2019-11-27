@@ -2,9 +2,10 @@ import argparse
 import pkg_resources
 import yaml
 
-from pedl_deploy.cfn import deploy_stack, get_output
+from pedl_deploy.cfn import deploy_stack, get_output, delete_stack
 from pedl_deploy.constants import *
 from pedl_deploy.ec2 import get_latest_release_amis, get_ec2_info
+from pedl_deploy.s3 import empty_bucket
 
 
 def display_config(vpc_output, resources_output, pedl_configs):
@@ -88,10 +89,21 @@ def deploy_full(pedl_configs):
     display_config(vpc_output, resources_output, pedl_configs)
 
 
+def delete():
+    print('Deleting stacks')
+    bucket_name = get_output(stacks.PEDL_STACK_NAME)[cloudformation.CHECKPOINT_BUCKET]
+    empty_bucket(bucket_name)
+
+    delete_stack(stacks.PEDL_STACK_NAME)
+    delete_stack(stacks.VPC_STACK_NAME)
+
+
 def main():
     master_ami, agent_ami = get_latest_release_amis()
 
     parser = argparse.ArgumentParser(description='Package for deploying PEDL to AWS')
+    parser.add_argument('--delete', action='store_true',
+                        help='Delete PEDL from account')
     parser.add_argument('--master-ami', type=str, default=master_ami,
                         help='ami for pedl master')
     parser.add_argument('--agent-ami', type=str, default=agent_ami,
@@ -114,7 +126,10 @@ def main():
         pedl_config.AGENT_INSTANCE_TYPE: args.agent_instance_type,
     }
 
-    deploy_full(pedl_configs)
+    if args.delete:
+        delete()
+    else:
+        deploy_full(pedl_configs)
 
 
 if __name__ == '__main__':
