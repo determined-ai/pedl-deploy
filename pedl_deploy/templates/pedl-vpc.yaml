@@ -140,8 +140,6 @@ Resources:
       ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
       VpcId: !Ref VPC
 
-
-
 Outputs:
   VPC:
     Description: A reference to the created VPC
