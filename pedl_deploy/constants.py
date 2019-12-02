@@ -57,7 +57,7 @@ class master_config:
     SECURITY_GROUP_ID = 'security_group_id'
     SUBNET_ID = 'subnet_id'
     INSTANCE_TYPE = 'instance_type'
-    IAM_INSTANCE_PROFILE = 'iam_instance_profile'
+    IAM_INSTANCE_PROFILE_ARN = 'iam_instance_profile_arn'
     MAX_INSTANCES = 'max_instances'
     PUBLIC_IP = 'public_ip'
 

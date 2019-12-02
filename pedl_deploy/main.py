@@ -12,7 +12,7 @@ def display_config(vpc_output, resources_output, pedl_configs):
     master = master_config.DEFAULT_MASTER_CONFIGS.copy()
     provisioner = master[master_config.PROVISIONER]
 
-    provisioner[master_config.IAM_INSTANCE_PROFILE] = resources_output[cloudformation.AGENT_INSTANCE_PROFILE_KEY]
+    provisioner[master_config.IAM_INSTANCE_PROFILE_ARN] = resources_output[cloudformation.AGENT_INSTANCE_PROFILE_KEY]
     provisioner[master_config.INSTANCE_TYPE] = pedl_configs[pedl_config.AGENT_INSTANCE_TYPE]
     provisioner[master_config.SSH_KEY_NAME] = pedl_configs[pedl_config.KEYPAIR]
     provisioner[master_config.IMAGE_ID] = pedl_configs[pedl_config.AGENT_AMI]
