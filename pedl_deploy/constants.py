@@ -1,9 +1,15 @@
+class deployment_types:
+    SIMPLE = 'simple'
+    SECURE = 'secure'
+    DEPLOYMENT_TYPES = [SIMPLE, SECURE]
+
 class defaults:
     KEYPAIR_NAME = "pedl-keypair"
     MASTER_INSTANCE_TYPE = 't2.medium'
     AGENT_INSTANCE_TYPE = 'p3.2xlarge'
     ENVIRONMENT_NAME = 'pedl'
     BASTION_AMI = 'ami-06d51e91cea0dac8d'
+    DEPLOYMENT_TYPE = deployment_types.SIMPLE
 
 class pedl_config:
     MASTER_AMI = 'master_ami'
@@ -27,12 +33,15 @@ class cloudformation:
     MASTER_ID = 'MasterId'
     BASTION_ID = 'BastionId'
     CHECKPOINT_BUCKET = 'CheckpointBucket'
+    MASTER_INSTANCE_TYPE = 'MasterInstanceType'
+    AGENT_INSTANCE_TYPE = 'AgentInstanceType'
 
 
 class resources:
     PEDL_VPC = 'pedl-vpc.yaml'
-    MASTER_YAML = 'master.yaml'
     PEDL_RESOURCES = 'pedl-resources.yaml'
+    SIMPLE = 'simple.yaml'
+    SECURE = 'secure.yaml'
 
 
 class stacks:
@@ -94,5 +103,6 @@ class master_config:
 
 class misc:
     PEDL_MASTER_YAML_PATH = '/usr/local/pedl/etc/master.yaml'
-    SSH_COMMAND = 'ssh -i <pem-file>  ubuntu@{master_ip} -o ' \
-                  '"proxycommand ssh -W %h:%p -i <pem-file> ubuntu@{bastion_ip}"'
+    SECURE_SSH_COMMAND = 'ssh -i <pem-file>  ubuntu@{master_ip} -o ' \
+                         '"proxycommand ssh -W %h:%p -i <pem-file> ubuntu@{bastion_ip}"'
+    SIMPLE_SSH_COMMAND = 'ssh -i <pem-file>  ubuntu@{master_ip}'
