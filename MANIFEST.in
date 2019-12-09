@@ -1,0 +1,1 @@
+include pedl_deploy/templates/*.yaml
