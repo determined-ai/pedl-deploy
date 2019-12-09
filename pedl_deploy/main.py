@@ -20,13 +20,14 @@ def display_secure_config(resources_output, pedl_configs):
 
     provisioner[master_config.NETWORK_INTERFACE][master_config.SUBNET_ID] = resources_output[cloudformation.PRIVATE_SUBNET_KEY]
     provisioner[master_config.NETWORK_INTERFACE][master_config.SECURITY_GROUP_ID] = resources_output[cloudformation.AGENT_SECURITY_GROUP_ID_KEY]
+    provisioner[master_config.NETWORK_INTERFACE][master_config.PUBLIC_IP] = False
 
     print(f'Insert configs to {misc.PEDL_MASTER_YAML_PATH} on master instance')
     print(yaml.dump(master_config.DEFAULT_MASTER_CONFIGS))
 
     print()
-    master_ip = get_ec2_info(resources_output[cloudformation.MASTER_ID])['PrivateIpAddress']
-    bastion_ip = get_ec2_info(resources_output[cloudformation.BASTION_ID])['PublicIpAddress']
+    master_ip = get_ec2_info(resources_output[cloudformation.MASTER_ID])[cloudformation.PRIVATE_IP_ADDRESS]
+    bastion_ip = get_ec2_info(resources_output[cloudformation.BASTION_ID])[cloudformation.PUBLIC_IP_ADDRESS]
     ssh_command = misc.SECURE_SSH_COMMAND.format(master_ip=master_ip, bastion_ip=bastion_ip)
     print(f'ssh to master using: {ssh_command}')
 
@@ -46,13 +47,13 @@ def display_simple_config(resources_output, pedl_configs):
     print(yaml.dump(master_config.DEFAULT_MASTER_CONFIGS))
 
     print()
-    master_ip = get_ec2_info(resources_output[cloudformation.MASTER_ID])['PublicIpAddress']
+    master_ip = get_ec2_info(resources_output[cloudformation.MASTER_ID])[cloudformation.PUBLIC_IP_ADDRESS]
     ssh_command = misc.SIMPLE_SSH_COMMAND.format(master_ip=master_ip)
 
     print(f'ssh to master using: {ssh_command}')
 
 
-def deploy_full(pedl_configs):
+def deploy_secure(pedl_configs):
     print('Starting PEDL deployment')
 
     cfn_parameters = [
@@ -78,12 +79,12 @@ def deploy_full(pedl_configs):
         }
     ]
 
-    template_path = pkg_resources.resource_filename('pedl_deploy.templates', resources.SECURE)
+    template_path = pkg_resources.resource_filename(misc.TEMPLATE_PATH, resources.SECURE)
     with open(template_path) as f:
         template = f.read()
 
-    deploy_stack(stacks.PEDL_STACK_NAME, template, parameters=cfn_parameters)
-    resources_output = get_output(stacks.PEDL_STACK_NAME)
+    deploy_stack(defaults.PEDL_STACK_NAME, template, parameters=cfn_parameters)
+    resources_output = get_output(defaults.PEDL_STACK_NAME)
     print(resources_output)
     display_secure_config(resources_output, pedl_configs)
 
@@ -110,23 +111,23 @@ def deploy_simple(pedl_configs):
         }
     ]
 
-    template_path = pkg_resources.resource_filename('pedl_deploy.templates', resources.SIMPLE)
+    template_path = pkg_resources.resource_filename(misc.TEMPLATE_PATH, resources.SIMPLE)
     with open(template_path) as f:
         template = f.read()
 
-    deploy_stack(stacks.PEDL_STACK_NAME, template, parameters=resources_cfn_parameters)
-    resources_output = get_output(stacks.PEDL_STACK_NAME)
+    deploy_stack(defaults.PEDL_STACK_NAME, template, parameters=resources_cfn_parameters)
+    resources_output = get_output(defaults.PEDL_STACK_NAME)
     print(resources_output)
 
     display_simple_config(resources_output, pedl_configs)
 
 
 def delete():
-    bucket_name = get_output(stacks.PEDL_STACK_NAME).get(cloudformation.CHECKPOINT_BUCKET)
+    bucket_name = get_output(defaults.PEDL_STACK_NAME).get(cloudformation.CHECKPOINT_BUCKET)
     if bucket_name:
         empty_bucket(bucket_name)
 
-    delete_stack(stacks.PEDL_STACK_NAME)
+    delete_stack(defaults.PEDL_STACK_NAME)
 
 
 def main():
@@ -163,7 +164,7 @@ def main():
         delete()
     else:
         if args.deployment_type == deployment_types.SECURE:
-            deploy_full(pedl_configs)
+            deploy_secure(pedl_configs)
         elif args.deployment_type == deployment_types.SIMPLE:
             deploy_simple(pedl_configs)
         else:

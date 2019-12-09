@@ -10,6 +10,7 @@ class defaults:
     ENVIRONMENT_NAME = 'pedl'
     BASTION_AMI = 'ami-06d51e91cea0dac8d'
     DEPLOYMENT_TYPE = deployment_types.SIMPLE
+    PEDL_STACK_NAME = "pedl"
 
 class pedl_config:
     MASTER_AMI = 'master_ami'
@@ -35,18 +36,13 @@ class cloudformation:
     CHECKPOINT_BUCKET = 'CheckpointBucket'
     MASTER_INSTANCE_TYPE = 'MasterInstanceType'
     AGENT_INSTANCE_TYPE = 'AgentInstanceType'
+    PUBLIC_IP_ADDRESS = 'PublicIpAddress'
+    PRIVATE_IP_ADDRESS = 'PrivateIpAddress'
 
 
 class resources:
-    PEDL_VPC = 'pedl-vpc.yaml'
-    PEDL_RESOURCES = 'pedl-resources.yaml'
     SIMPLE = 'simple.yaml'
     SECURE = 'secure.yaml'
-
-
-class stacks:
-    VPC_STACK_NAME = "pedl-vpc"
-    PEDL_STACK_NAME = "pedl"
 
 
 class master_config:
@@ -80,7 +76,7 @@ class master_config:
     DEFAULT_ROOT_VOLUME_SIZE = 200
     DEFAULT_MAX_INSTANCES = 5
     DEFAULT_INSTANCE_NAME = 'pedl-agent'
-    DEFAULT_PUBLIC_IP = False
+    DEFAULT_NETWORK_INTERFACE = {}
 
     DEFAULT_MASTER_CONFIGS = {
         PROVISIONER: {
@@ -93,9 +89,7 @@ class master_config:
             TAG_KEY: DEFAULT_TAG_KEY,
             TAG_VALUE: DEFAULT_TAG_VALUE,
             INSTANCE_NAME: DEFAULT_INSTANCE_NAME,
-            NETWORK_INTERFACE: {
-                PUBLIC_IP: DEFAULT_PUBLIC_IP
-            }
+            NETWORK_INTERFACE: DEFAULT_NETWORK_INTERFACE
 
         }
     }
@@ -106,3 +100,4 @@ class misc:
     SECURE_SSH_COMMAND = 'ssh -i <pem-file>  ubuntu@{master_ip} -o ' \
                          '"proxycommand ssh -W %h:%p -i <pem-file> ubuntu@{bastion_ip}"'
     SIMPLE_SSH_COMMAND = 'ssh -i <pem-file>  ubuntu@{master_ip}'
+    TEMPLATE_PATH = 'pedl_deploy.templates'
