@@ -1,7 +1,8 @@
 class deployment_types:
     SIMPLE = 'simple'
     SECURE = 'secure'
-    DEPLOYMENT_TYPES = [SIMPLE, SECURE]
+    VPC = 'vpc'
+    DEPLOYMENT_TYPES = [SIMPLE, SECURE, VPC]
 
 class defaults:
     KEYPAIR_NAME = "pedl-keypair"
@@ -38,11 +39,13 @@ class cloudformation:
     AGENT_INSTANCE_TYPE = 'AgentInstanceType'
     PUBLIC_IP_ADDRESS = 'PublicIpAddress'
     PRIVATE_IP_ADDRESS = 'PrivateIpAddress'
+    SUBNET_ID_KEY = 'SubnetId'
 
 
 class resources:
     SIMPLE = 'simple.yaml'
     SECURE = 'secure.yaml'
+    VPC = 'vpc.yaml'
 
 
 class master_config:

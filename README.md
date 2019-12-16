@@ -31,7 +31,11 @@ pedl-deploy --delete
 
 ## Deployment Types
 ### Simple
-The simple deployment is the easiest way to get a PEDL cluster deployed into AWS. It will create the master instance in the default subnet for the account. 
+The simple deployment is the easiest way to get a PEDL cluster deployed into AWS. It will create the master instance 
+in the default subnet for the account. 
+
+### VPC
+The VPC deployment creates a separate VPC with one subnet. The PEDL master instance is installed into this subnet.
 
 ### Secure
 The secure deployment creates resources to lock down PEDL. These resources are:
@@ -41,4 +45,5 @@ The secure deployment creates resources to lock down PEDL. These resources are:
 - A bastion instance in the public subnet
 - A master instance in the private subnet
 
-In this setup, the master and agents will not have public ips, and can only be accessed through the bastion host. The UI is accessed through an ssh tunnel through the bastion to the master.
+In this setup, the master and agents will not have public ips, and can only be accessed through the bastion host. 
+The UI is accessed through an ssh tunnel through the bastion to the master.
