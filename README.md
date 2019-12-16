@@ -27,7 +27,7 @@ pedl-deploy --delete
 | `--agent-ami`            | The AMI to use for the agent instances.               | Latest Agent AMI  |
 | `--keypair`              | The keypair for master and agent instances.           | `pedl-keypair`    |
 | `--master-instance-type` | The AWS instance type for master instance.            | `t2.medium`       |
-| `--agent-instance-type`  | The AWS instance type for the agent instance.         | `p3.2xlarge`      |
+| `--agent-instance-type`  | The AWS instance type for the agent instance.         | `p2.8xlarge`      |
 
 ## Deployment Types
 ### Simple

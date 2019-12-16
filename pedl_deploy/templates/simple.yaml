@@ -6,7 +6,7 @@ Parameters:
     Type: String
     Description: Keypair to SSH
 
-  EnvironmentName:
+  UserName:
     Type: String
     Description: The User Who Deployed the Stack
 
@@ -97,7 +97,7 @@ Resources:
       GroupDescription: Security Group For Master
       Tags:
         - Key: user
-          Value: !Ref EnvironmentName
+          Value: !Ref UserName
 
   AgentSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -105,7 +105,7 @@ Resources:
       GroupDescription: Security Group For Agent
       Tags:
         - Key: user
-          Value: !Ref EnvironmentName
+          Value: !Ref UserName
 
   AgentRole:
     Type: AWS::IAM::Role
@@ -167,7 +167,7 @@ Resources:
                 Resource: !GetAtt AgentRole.Arn
       Tags:
         - Key: user
-          Value: !Ref EnvironmentName
+          Value: !Ref UserName
 
   MasterInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -191,12 +191,12 @@ Resources:
             VolumeType: gp2
       Tags:
         - Key: user
-          Value: !Ref EnvironmentName
+          Value: !Ref UserName
 
   CheckpointBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${EnvironmentName}-${AWS::Region}-${AWS::AccountId}
+      BucketName: !Sub pedl-${UserName}-${AWS::Region}-${AWS::AccountId}
 
 
 Outputs:

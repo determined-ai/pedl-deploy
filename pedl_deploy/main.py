@@ -3,10 +3,19 @@ import pkg_resources
 import sys
 import yaml
 
+import boto3
+
 from pedl_deploy.cfn import deploy_stack, get_output, delete_stack
 from pedl_deploy.constants import *
 from pedl_deploy.ec2 import get_latest_release_amis, get_ec2_info
 from pedl_deploy.s3 import empty_bucket
+
+sts = boto3.client('sts')
+
+
+def get_user():
+    response = sts.get_caller_identity()
+    return response['Arn'].split('/')[-1]
 
 
 def display_secure_config(resources_output, pedl_configs):
@@ -58,8 +67,8 @@ def deploy_secure(pedl_configs):
 
     cfn_parameters = [
         {
-            'ParameterKey': cloudformation.ENVIRONMENT_NAME_KEY,
-            'ParameterValue': defaults.ENVIRONMENT_NAME
+            'ParameterKey': cloudformation.USER_NAME_KEY,
+            'ParameterValue': pedl_configs[pedl_config.USER]
         },
         {
             'ParameterKey': cloudformation.KEYPAIR_KEY,
@@ -83,8 +92,8 @@ def deploy_secure(pedl_configs):
     with open(template_path) as f:
         template = f.read()
 
-    deploy_stack(defaults.PEDL_STACK_NAME, template, parameters=cfn_parameters)
-    resources_output = get_output(defaults.PEDL_STACK_NAME)
+    deploy_stack(pedl_configs[pedl_config.PEDL_STACK_NAME], template, parameters=cfn_parameters)
+    resources_output = get_output(pedl_configs[pedl_config.PEDL_STACK_NAME])
     print(resources_output)
     display_secure_config(resources_output, pedl_configs)
 
@@ -94,8 +103,8 @@ def deploy_simple(pedl_configs):
 
     resources_cfn_parameters = [
         {
-            'ParameterKey': cloudformation.ENVIRONMENT_NAME_KEY,
-            'ParameterValue': defaults.ENVIRONMENT_NAME
+            'ParameterKey': cloudformation.USER_NAME_KEY,
+            'ParameterValue': pedl_configs[pedl_config.USER]
         },
         {
             'ParameterKey': cloudformation.KEYPAIR_KEY,
@@ -115,19 +124,19 @@ def deploy_simple(pedl_configs):
     with open(template_path) as f:
         template = f.read()
 
-    deploy_stack(defaults.PEDL_STACK_NAME, template, parameters=resources_cfn_parameters)
-    resources_output = get_output(defaults.PEDL_STACK_NAME)
+    deploy_stack(pedl_configs[pedl_config.PEDL_STACK_NAME], template, parameters=resources_cfn_parameters)
+    resources_output = get_output(pedl_configs[pedl_config.PEDL_STACK_NAME])
     print(resources_output)
 
     display_simple_config(resources_output, pedl_configs)
 
 
-def delete():
-    bucket_name = get_output(defaults.PEDL_STACK_NAME).get(cloudformation.CHECKPOINT_BUCKET)
+def delete(stack_name):
+    bucket_name = get_output(stack_name).get(cloudformation.CHECKPOINT_BUCKET)
     if bucket_name:
         empty_bucket(bucket_name)
 
-    delete_stack(defaults.PEDL_STACK_NAME)
+    delete_stack(stack_name)
 
 
 def main():
@@ -152,16 +161,21 @@ def main():
                         help='instance type for agent')
     args = parser.parse_args()
 
+    user = get_user()
+    stack_name = defaults.PEDL_STACK_NAME_BASE.format(user)
+
     pedl_configs = {
         pedl_config.MASTER_AMI: args.master_ami,
         pedl_config.AGENT_AMI: args.agent_ami,
         pedl_config.KEYPAIR: args.keypair,
         pedl_config.MASTER_INSTANCE_TYPE: args.master_instance_type,
         pedl_config.AGENT_INSTANCE_TYPE: args.agent_instance_type,
+        pedl_config.USER: user,
+        pedl_config.PEDL_STACK_NAME: stack_name
     }
 
     if args.delete:
-        delete()
+        delete(stack_name)
     else:
         if args.deployment_type == deployment_types.SECURE:
             deploy_secure(pedl_configs)

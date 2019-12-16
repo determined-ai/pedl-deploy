@@ -6,11 +6,10 @@ class deployment_types:
 class defaults:
     KEYPAIR_NAME = "pedl-keypair"
     MASTER_INSTANCE_TYPE = 't2.medium'
-    AGENT_INSTANCE_TYPE = 'p3.2xlarge'
-    ENVIRONMENT_NAME = 'pedl'
+    AGENT_INSTANCE_TYPE = 'p2.8xlarge'
     BASTION_AMI = 'ami-06d51e91cea0dac8d'
     DEPLOYMENT_TYPE = deployment_types.SIMPLE
-    PEDL_STACK_NAME = "pedl"
+    PEDL_STACK_NAME_BASE = "pedl-{}"
 
 class pedl_config:
     MASTER_AMI = 'master_ami'
@@ -18,11 +17,12 @@ class pedl_config:
     KEYPAIR = 'keypair'
     MASTER_INSTANCE_TYPE = 'master_instance_type'
     AGENT_INSTANCE_TYPE = 'agent_instance_type'
-    STACK_NAME = 'stack_name'
+    PEDL_STACK_NAME = 'stack_name'
+    USER = 'user'
 
 
 class cloudformation:
-    ENVIRONMENT_NAME_KEY = 'EnvironmentName'
+    USER_NAME_KEY = 'UserName'
     KEYPAIR_KEY = 'Keypair'
     VPC_KEY = 'VPC'
     PUBLIC_SUBNET_KEY = 'PublicSubnetId'
