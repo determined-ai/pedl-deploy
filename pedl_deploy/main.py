@@ -140,6 +140,14 @@ def deploy_simple(pedl_configs):
         {
             'ParameterKey': cloudformation.MASTER_INSTANCE_TYPE,
             'ParameterValue': pedl_configs[pedl_config.MASTER_INSTANCE_TYPE]
+        },
+        {
+            'ParameterKey': cloudformation.AGENT_AMI_KEY,
+            'ParameterValue': pedl_configs[pedl_config.AGENT_AMI]
+        },
+        {
+            'ParameterKey': cloudformation.AGENT_INSTANCE_TYPE,
+            'ParameterValue': pedl_configs[pedl_config.AGENT_INSTANCE_TYPE]
         }
     ]
 

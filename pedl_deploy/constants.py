@@ -30,6 +30,7 @@ class cloudformation:
     PRIVATE_SUBNET_KEY = 'PrivateSubnetId'
     BASTION_AMI_KEY = 'BastionAmiId'
     MASTER_AMI_KEY = 'MasterAmiId'
+    AGENT_AMI_KEY = 'AgentAmiId'
     AGENT_INSTANCE_PROFILE_KEY = 'AgentInstanceProfile'
     AGENT_SECURITY_GROUP_ID_KEY = 'AgentSecurityGroupId'
     MASTER_ID = 'MasterId'
