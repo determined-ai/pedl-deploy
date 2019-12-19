@@ -1,5 +1,8 @@
 # PEDL Deploy
 
+## Requirements
+AWS credentials configured either in either `~/.aws/credentials` or by environment variables.
+
 ## Install
 1. Clone the repository
 
