@@ -226,7 +226,7 @@ Resources:
       ToPort: 65535
       IpProtocol: tcp
 
-  AgentSecurityGroupIngress:
+  AgentSecurityGroupIngressMaster:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       GroupId: !GetAtt AgentSecurityGroup.GroupId
@@ -234,6 +234,16 @@ Resources:
       ToPort: 65535
       IpProtocol: tcp
       SourceSecurityGroupId: !GetAtt MasterSecurityGroup.GroupId
+
+  AgentSecurityGroupIngressAgent:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt AgentSecurityGroup.GroupId
+      FromPort: 0
+      ToPort: 65535
+      IpProtocol: tcp
+      SourceSecurityGroupId: !GetAtt AgentSecurityGroup.GroupId
+
 
   AgentSSHIngress:
     Type: AWS::EC2::SecurityGroupIngress
