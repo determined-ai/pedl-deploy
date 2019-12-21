@@ -230,23 +230,27 @@ Resources:
           #!/bin/bash
 
           cat << EOF > /tmp/master.yaml
-            provisioner:
-              agent_docker_network: pedl
-              iam_instance_profile_arn: ${AgentInstanceProfile.Arn}
-              image_id: ${AgentAmiId}
-              instance_name: pedl-agent-${UserName}
-              instance_type: ${AgentInstanceType}
-              master_url: http://local-ipv4:8080
-              max_idle_agent_period: 5m
-              max_instances: 5
-              network_interface:
-                public_ip: true
-                security_group_id: ${AgentSecurityGroup.GroupId}
-              provider: aws
-              root_volume_size: 200
-              ssh_key_name: ${Keypair}
-              tag_key: pedl-${UserName}
-              tag_value: pedl-agent-${UserName}
+          checkpoint_storage:
+            type: s3
+            bucket: ${CheckpointBucket}
+
+          provisioner:
+            agent_docker_network: pedl
+            iam_instance_profile_arn: ${AgentInstanceProfile.Arn}
+            image_id: ${AgentAmiId}
+            instance_name: pedl-agent-${UserName}
+            instance_type: ${AgentInstanceType}
+            master_url: http://local-ipv4:8080
+            max_idle_agent_period: 5m
+            max_instances: 5
+            network_interface:
+              public_ip: true
+              security_group_id: ${AgentSecurityGroup.GroupId}
+            provider: aws
+            root_volume_size: 200
+            ssh_key_name: ${Keypair}
+            tag_key: pedl-${UserName}
+            tag_value: pedl-agent-${UserName}
           EOF
 
           rm /usr/local/pedl/etc/master.yaml
