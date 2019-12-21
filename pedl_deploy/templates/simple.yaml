@@ -27,6 +27,11 @@ Parameters:
     Description: Instance Type of Agent
 
 Resources:
+  CheckpointBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub pedl-${UserName}-${AWS::Region}-${AWS::AccountId}
+
   MasterSecurityGroupEgress:
     Type: AWS::EC2::SecurityGroupEgress
     Properties:
@@ -108,6 +113,24 @@ Resources:
       ToPort: 22
       CidrIp: 0.0.0.0/0
 
+  DatabaseEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt DatabaseSecurityGroup.GroupId
+      CidrIp: 0.0.0.0/0
+      FromPort: 0
+      ToPort: 65535
+      IpProtocol: -1
+
+  DatabaseIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt DatabaseSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !GetAtt MasterSecurityGroup.GroupId
+
   MasterSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -123,6 +146,29 @@ Resources:
       Tags:
         - Key: user
           Value: !Ref UserName
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group For Database
+      Tags:
+        - Key: user
+          Value: !Ref UserName
+
+  Database:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Engine: aurora-postgresql
+      EngineMode: serverless
+      DatabaseName: pedl
+      DBClusterParameterGroupName: 'default.aurora-postgresql10'
+      MasterUsername: postgres
+      MasterUserPassword: postgres
+      Tags:
+        - Key: user
+          Value: !Ref UserName
+      VpcSecurityGroupIds:
+        - !GetAtt DatabaseSecurityGroup.GroupId
 
   AgentRole:
     Type: AWS::IAM::Role
@@ -255,18 +301,24 @@ Resources:
 
           rm /usr/local/pedl/etc/master.yaml
           mv /tmp/master.yaml /usr/local/pedl/etc/master.yaml
+
+          cat << EOF > /tmp/override.conf
+          [Service]
+          Environment="PEDL_DB_HOSTNAME=${Database.Endpoint.Address}"
+          Environment="PEDL_DB_USER=postgres"
+          Environment="PEDL_DB_NAME=pedl"
+          Environment="PEDL_DB_PASSWORD=postgres"
+          EOF
+
+          mkdir /etc/systemd/system/pedl-master.service.d/
+          mv /tmp/override.conf /etc/systemd/system/pedl-master.service.d/override.conf
+
           cd /usr/local/pedl/
           make enable-master
           --//
       Tags:
         - Key: user
           Value: !Ref UserName
-
-  CheckpointBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub pedl-${UserName}-${AWS::Region}-${AWS::AccountId}
-
 
 Outputs:
   MasterId:
