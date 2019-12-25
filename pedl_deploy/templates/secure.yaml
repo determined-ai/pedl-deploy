@@ -37,6 +37,14 @@ Parameters:
     Type: String
     Description: Instance Type of Master
 
+  AgentAmiId:
+    Type: String
+    Description: AMI Id for Agent
+
+  AgentInstanceType:
+    Type: String
+    Description: Instance Type of Agent
+
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -244,7 +252,6 @@ Resources:
       IpProtocol: tcp
       SourceSecurityGroupId: !GetAtt AgentSecurityGroup.GroupId
 
-
   AgentSSHIngress:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
@@ -367,6 +374,59 @@ Resources:
           Ebs:
             VolumeSize: 200
             VolumeType: gp2
+      UserData:
+        Fn::Base64: !Sub |
+          Content-Type: multipart/mixed; boundary="//"
+          MIME-Version: 1.0
+
+          --//
+          Content-Type: text/cloud-config; charset="us-ascii"
+          MIME-Version: 1.0
+          Content-Transfer-Encoding: 7bit
+          Content-Disposition: attachment; filename="cloud-config.txt"
+
+          #cloud-config
+          cloud_final_modules:
+          - [scripts-user, always]
+
+          --//
+          Content-Type: text/x-shellscript; charset="us-ascii"
+          MIME-Version: 1.0
+          Content-Transfer-Encoding: 7bit
+          Content-Disposition: attachment; filename="userdata.txt"
+
+          #!/bin/bash
+
+          cat << EOF > /tmp/master.yaml
+          checkpoint_storage:
+            type: s3
+            bucket: ${CheckpointBucket}
+
+          provisioner:
+            agent_docker_network: pedl
+            iam_instance_profile_arn: ${AgentInstanceProfile.Arn}
+            image_id: ${AgentAmiId}
+            instance_name: pedl-agent-${UserName}
+            instance_type: ${AgentInstanceType}
+            master_url: http://local-ipv4:8080
+            max_idle_agent_period: 5m
+            max_instances: 5
+            network_interface:
+              public_ip: false
+              security_group_id: ${AgentSecurityGroup.GroupId}
+              subnet_id: ${PrivateSubnet}
+            provider: aws
+            root_volume_size: 200
+            ssh_key_name: ${Keypair}
+            tag_key: pedl-${UserName}
+            tag_value: pedl-agent-${UserName}
+          EOF
+
+          rm /usr/local/pedl/etc/master.yaml
+          mv /tmp/master.yaml /usr/local/pedl/etc/master.yaml
+          cd /usr/local/pedl/
+          make enable-master
+          --//
       Tags:
         - Key: user
           Value: !Ref UserName
