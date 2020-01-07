@@ -46,9 +46,12 @@ def main():
     parser.add_argument('--agent-instance-type', type=str,
                         default=defaults.AGENT_INSTANCE_TYPE,
                         help='instance type for agent')
+    parser.add_argument('--user', type=str,
+                        default=get_user(),
+                        help='user to name stack and tag resources')
     args = parser.parse_args()
 
-    user = get_user()
+    user = args.user
     stack_name = defaults.PEDL_STACK_NAME_BASE.format(user)
 
     if args.delete:
