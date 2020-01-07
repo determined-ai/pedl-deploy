@@ -241,6 +241,7 @@ Resources:
   MasterInstance:
     Type: AWS::EC2::Instance
     Properties:
+      DependsOn: Database
       InstanceType: !Ref MasterInstanceType
       ImageId: !Ref MasterAmiId
       KeyName: !Ref Keypair

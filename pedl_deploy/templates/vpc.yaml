@@ -11,10 +11,15 @@ Parameters:
     Type: String
     Default: 10.192.0.0/16
 
-  SubnetCIDR:
-    Description: Please enter the IP range (CIDR notation) for the public subnet
+  Subnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
     Type: String
     Default: 10.192.10.0/24
+
+  Subnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
+    Type: String
+    Default: 10.192.11.0/24
 
   Keypair:
     Description: Keypair for resources
@@ -60,16 +65,38 @@ Resources:
       InternetGatewayId: !Ref InternetGateway
       VpcId: !Ref VPC
 
-  Subnet:
+  Subnet1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
-      CidrBlock: !Ref SubnetCIDR
+      CidrBlock: !Ref Subnet1CIDR
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub ${UserName} Subnet
+          Value: !Sub ${UserName} Public Subnet (AZ1)
+
+  Subnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref Subnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${UserName} Public Subnet (AZ2)
+
+#  Subnet:
+#    Type: AWS::EC2::Subnet
+#    Properties:
+#      VpcId: !Ref VPC
+#      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+#      CidrBlock: !Ref SubnetCIDR
+#      MapPublicIpOnLaunch: true
+#      Tags:
+#        - Key: Name
+#          Value: !Sub ${UserName} Subnet
 
   RouteTable:
     Type: AWS::EC2::RouteTable
@@ -87,11 +114,17 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
 
-  SubnetRouteTableAssociation:
+  Subnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref RouteTable
-      SubnetId: !Ref Subnet
+      SubnetId: !Ref Subnet1
+
+  Subnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref Subnet2
 
   MasterSecurityGroupEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -175,6 +208,24 @@ Resources:
       ToPort: 22
       CidrIp: 0.0.0.0/0
 
+  DatabaseEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt DatabaseSecurityGroup.GroupId
+      CidrIp: 0.0.0.0/0
+      FromPort: 0
+      ToPort: 65535
+      IpProtocol: -1
+
+  DatabaseIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt DatabaseSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !GetAtt MasterSecurityGroup.GroupId
+
   MasterSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -192,6 +243,42 @@ Resources:
       Tags:
         - Key: user
           Value: !Ref UserName
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group For Database
+      VpcId: !Ref VPC
+      Tags:
+        - Key: user
+          Value: !Ref UserName
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: pedl-db-subnet-group
+      SubnetIds:
+        - !Ref Subnet1
+        - !Ref Subnet2
+      Tags:
+        - Key: user
+          Value: !Ref UserName
+
+  Database:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Engine: aurora-postgresql
+      EngineMode: serverless
+      DatabaseName: pedl
+      DBClusterParameterGroupName: 'default.aurora-postgresql10'
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      MasterUsername: postgres
+      MasterUserPassword: postgres
+      Tags:
+        - Key: user
+          Value: !Ref UserName
+      VpcSecurityGroupIds:
+        - !GetAtt DatabaseSecurityGroup.GroupId
 
   AgentRole:
     Type: AWS::IAM::Role
@@ -264,7 +351,7 @@ Resources:
   MasterInstance:
     Type: AWS::EC2::Instance
     Properties:
-      SubnetId: !Ref Subnet
+      SubnetId: !Ref Subnet1
       InstanceType: !Ref MasterInstanceType
       ImageId: !Ref MasterAmiId
       KeyName: !Ref Keypair
@@ -316,7 +403,7 @@ Resources:
             network_interface:
               public_ip: true
               security_group_id: ${AgentSecurityGroup.GroupId}
-              subnet_id: ${Subnet}
+              subnet_id: ${Subnet1}
             provider: aws
             root_volume_size: 200
             ssh_key_name: ${Keypair}
@@ -326,8 +413,21 @@ Resources:
 
           rm /usr/local/pedl/etc/master.yaml
           mv /tmp/master.yaml /usr/local/pedl/etc/master.yaml
+
+          cat << EOF > /tmp/override.conf
+          [Service]
+          Environment="PEDL_DB_HOSTNAME=${Database.Endpoint.Address}"
+          Environment="PEDL_DB_USER=postgres"
+          Environment="PEDL_DB_NAME=pedl"
+          Environment="PEDL_DB_PASSWORD=postgres"
+          EOF
+
+          mkdir /etc/systemd/system/pedl-master.service.d/
+          mv /tmp/override.conf /etc/systemd/system/pedl-master.service.d/override.conf
+
           cd /usr/local/pedl/
           make enable-master
+
           --//
       Tags:
         - Key: user
@@ -345,7 +445,7 @@ Outputs:
 
   SubnetId:
     Description: A list of the public subnets
-    Value: !Ref Subnet
+    Value: !Ref Subnet1
 
   MasterId:
     Description: Id of Master Agent
