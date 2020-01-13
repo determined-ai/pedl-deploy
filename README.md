@@ -31,6 +31,8 @@ pedl-deploy --delete
 | `--keypair`              | The keypair for master and agent instances.           | `pedl-keypair`    |
 | `--master-instance-type` | The AWS instance type for master instance.            | `t2.medium`       |
 | `--agent-instance-type`  | The AWS instance type for the agent instance.         | `p2.8xlarge`      |
+| `--user`                 | The user name for the stack                           | The IAM user name |
+| `--aws-profile`          | The AWS profile from the `~/.aws/credentials` file    | `None` - default  |
 
 ## Deployment Types
 ### Simple
