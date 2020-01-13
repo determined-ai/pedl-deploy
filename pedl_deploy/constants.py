@@ -20,6 +20,7 @@ class pedl_config:
     AGENT_INSTANCE_TYPE = 'agent_instance_type'
     PEDL_STACK_NAME = 'stack_name'
     USER = 'user'
+    BOTO3_SESSION = 'boto3_session'
 
 
 class cloudformation:
@@ -41,6 +42,7 @@ class cloudformation:
     PUBLIC_IP_ADDRESS = 'PublicIpAddress'
     PRIVATE_IP_ADDRESS = 'PrivateIpAddress'
     SUBNET_ID_KEY = 'SubnetId'
+    PEDLIP = 'PEDLIP'
 
 
 class resources:

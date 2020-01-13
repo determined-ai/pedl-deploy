@@ -1,9 +1,8 @@
 import pkg_resources
 
-from pedl_deploy.cfn import deploy_stack, get_output
+from pedl_deploy.aws import deploy_stack, get_output, get_ec2_info
 from pedl_deploy.constants import *
 from pedl_deploy.deployment_types.base import PEDLDeployment
-from pedl_deploy.ec2 import get_ec2_info
 
 
 class Secure(PEDLDeployment):
@@ -55,14 +54,15 @@ class Secure(PEDLDeployment):
         with open(self.template()) as f:
             template = f.read()
 
-        deploy_stack(parameters[pedl_config.PEDL_STACK_NAME], template, parameters=cfn_parameters)
-        self.print_results(parameters[pedl_config.PEDL_STACK_NAME])
+        deploy_stack(parameters[pedl_config.PEDL_STACK_NAME], template,
+                     parameters[pedl_config.BOTO3_SESSION], parameters=cfn_parameters)
+        self.print_results(parameters[pedl_config.PEDL_STACK_NAME], parameters[pedl_config.BOTO3_SESSION])
 
-    def print_results(self, stack_name):
-        output = get_output(stack_name)
+    def print_results(self, stack_name, boto3_session):
+        output = get_output(stack_name, boto3_session)
 
-        bastion_ip = get_ec2_info(output['BastionId'])[cloudformation.PUBLIC_IP_ADDRESS]
-        master_ip = get_ec2_info(output['MasterId'])[cloudformation.PRIVATE_IP_ADDRESS]
+        bastion_ip = get_ec2_info(output['BastionId'], boto3_session)[cloudformation.PUBLIC_IP_ADDRESS]
+        master_ip = get_ec2_info(output['MasterId'], boto3_session)[cloudformation.PRIVATE_IP_ADDRESS]
 
         ui_command = self.pedl_ui.format(master_ip=master_ip, bastion_ip=bastion_ip)
         print(ui_command)

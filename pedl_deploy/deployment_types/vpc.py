@@ -1,9 +1,8 @@
 import pkg_resources
 
-from pedl_deploy.cfn import deploy_stack, get_output
+from pedl_deploy.aws import deploy_stack, get_output, get_ec2_info
 from pedl_deploy.constants import *
 from pedl_deploy.deployment_types.base import PEDLDeployment
-from pedl_deploy.ec2 import get_ec2_info
 
 
 class VPC(PEDLDeployment):
@@ -46,12 +45,13 @@ class VPC(PEDLDeployment):
         with open(self.template()) as f:
             template = f.read()
 
-        deploy_stack(parameters[pedl_config.PEDL_STACK_NAME], template, parameters=cfn_parameters)
-        self.print_results(parameters[pedl_config.PEDL_STACK_NAME])
+        deploy_stack(parameters[pedl_config.PEDL_STACK_NAME], template,
+                     parameters[pedl_config.BOTO3_SESSION], parameters=cfn_parameters)
+        self.print_results(parameters[pedl_config.PEDL_STACK_NAME], parameters[pedl_config.BOTO3_SESSION])
 
-    def print_results(self, stack_name):
-        output = get_output(stack_name)
-        master_ip = get_ec2_info(output[cloudformation.MASTER_ID])[cloudformation.PUBLIC_IP_ADDRESS]
+    def print_results(self, stack_name, boto3_session):
+        output = get_output(stack_name, boto3_session)
+        master_ip = get_ec2_info(output[cloudformation.MASTER_ID], boto3_session)[cloudformation.PUBLIC_IP_ADDRESS]
         ui_command = self.pedl_ui.format(master_ip=master_ip)
         print(ui_command)
 
