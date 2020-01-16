@@ -49,6 +49,12 @@ def main():
     args = parser.parse_args()
 
     boto3_session = session(args.aws_profile)
+    user = args.user if args.user else get_user(boto3_session)
+    stack_name = defaults.PEDL_STACK_NAME_BASE.format(user)
+    if args.delete:
+        delete(stack_name, boto3_session)
+        print('Delete Successful')
+        return
 
     check_keypair(args.keypair, boto3_session)
 
@@ -60,17 +66,6 @@ def main():
             sys.exit(1)
 
         master_ami, agent_ami = get_latest_release_amis(boto3_session)
-
-    if args.user:
-        user = args.user
-    else:
-        user = get_user(boto3_session)
-
-    stack_name = defaults.PEDL_STACK_NAME_BASE.format(user)
-    if args.delete:
-        delete(stack_name, boto3_session)
-        print('Delete Successful')
-        return
 
     pedl_configs = {
         pedl_config.MASTER_AMI: master_ami,
