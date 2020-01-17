@@ -170,6 +170,45 @@ Resources:
       VpcSecurityGroupIds:
         - !GetAtt DatabaseSecurityGroup.GroupId
 
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /determined/pedl-${UserName}/journald
+
+  LogPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref AgentRole
+        - !Ref MasterRole
+      PolicyName: agent-log-policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+            Resource:
+              - !Sub arn:aws:logs:*:*:log-group:/determined/pedl-${UserName}/journald,
+              - !Sub arn:aws:logs:*:*:log-group:/determined/pedl-${UserName}/journald:log-stream:*
+
+  MetricPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref AgentRole
+        - !Ref MasterRole
+      PolicyName: agent-metric-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - cloudwatch:PutMetricData
+            Effect: Allow
+            Resource: "*"
+
   AgentRole:
     Type: AWS::IAM::Role
     Properties:
@@ -189,6 +228,14 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: "s3:*"
+                Resource: "*"
+        - PolicyName: pedl-ec2
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
                 Resource: "*"
 
   AgentInstanceProfile:
@@ -279,6 +326,9 @@ Resources:
           checkpoint_storage:
             type: s3
             bucket: ${CheckpointBucket}
+            save_experiment_best: 0
+            save_trial_best: 1
+            save_trial_latest: 1
 
           provisioner:
             agent_docker_network: pedl
@@ -295,8 +345,16 @@ Resources:
             provider: aws
             root_volume_size: 200
             ssh_key_name: ${Keypair}
+            startup_script: |
+              cat << EOF > /tmp/journald-cloudwatch.conf
+              log_group = "/determined/pedl-${UserName}/journald"
+              EOF
+
+              rm /etc/journald-cloudwatch.conf
+              mv /tmp/journald-cloudwatch.conf /etc/journald-cloudwatch.conf
+              systemctl restart journald-cloudwatch
             tag_key: pedl-${UserName}
-            tag_value: pedl-agent-${UserName}
+            tag_value: pedl-${UserName}-agent
           EOF
 
           rm /usr/local/pedl/etc/master.yaml
@@ -313,12 +371,23 @@ Resources:
           mkdir /etc/systemd/system/pedl-master.service.d/
           mv /tmp/override.conf /etc/systemd/system/pedl-master.service.d/override.conf
 
+          cat << EOF > /tmp/journald-cloudwatch.conf
+          log_group = "/determined/pedl-${UserName}/journald"
+          field_length = 1000
+          EOF
+
+          rm /etc/journald-cloudwatch.conf
+          mv /tmp/journald-cloudwatch.conf /etc/journald-cloudwatch.conf
+          systemctl restart journald-cloudwatch
+
           cd /usr/local/pedl/
           make enable-master
           --//
       Tags:
         - Key: user
           Value: !Ref UserName
+        - Key: Name
+          Value: !Sub pedl-${UserName}-master
 
 Outputs:
   MasterId:

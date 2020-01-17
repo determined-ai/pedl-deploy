@@ -16,10 +16,15 @@ Parameters:
     Type: String
     Default: 10.192.10.0/24
 
-  PrivateSubnetCIDR:
+  PrivateSubnet1CIDR:
     Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
     Type: String
     Default: 10.192.20.0/24
+
+  PrivateSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
+    Type: String
+    Default: 10.192.21.0/24
 
   Keypair:
     Description: Keypair for resources
@@ -80,16 +85,27 @@ Resources:
         - Key: Name
           Value: !Sub ${UserName} Public Subnet (AZ1)
 
-  PrivateSubnet:
+  PrivateSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
-      CidrBlock: !Ref PrivateSubnetCIDR
-      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub ${UserName} Private Subnet (AZ1)
+          Value: !Sub ${UserName} Public Subnet (AZ1)
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${UserName} Public Subnet (AZ2)
 
   NatGatewayEIP:
     Type: AWS::EC2::EIP
@@ -140,11 +156,17 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGateway
 
-  PrivateSubnetRouteTableAssociation:
+  PrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PrivateRouteTable
-      SubnetId: !Ref PrivateSubnet
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet2
 
   S3Endpoint:
     Type: AWS::EC2::VPCEndpoint
@@ -261,6 +283,24 @@ Resources:
       ToPort: 22
       SourceSecurityGroupId: !GetAtt BastionSecurityGroup.GroupId
 
+  DatabaseEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt DatabaseSecurityGroup.GroupId
+      CidrIp: 0.0.0.0/0
+      FromPort: 0
+      ToPort: 65535
+      IpProtocol: -1
+
+  DatabaseIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt DatabaseSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !GetAtt MasterSecurityGroup.GroupId
+
   MasterSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -278,6 +318,82 @@ Resources:
       Tags:
         - Key: user
           Value: !Ref UserName
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group For Database
+      VpcId: !Ref VPC
+      Tags:
+        - Key: user
+          Value: !Ref UserName
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: pedl-db-subnet-group
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: user
+          Value: !Ref UserName
+
+  Database:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Engine: aurora-postgresql
+      EngineMode: serverless
+      DatabaseName: pedl
+      DBClusterParameterGroupName: 'default.aurora-postgresql10'
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      MasterUsername: postgres
+      MasterUserPassword: postgres
+      Tags:
+        - Key: user
+          Value: !Ref UserName
+      VpcSecurityGroupIds:
+        - !GetAtt DatabaseSecurityGroup.GroupId
+
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /determined/pedl-${UserName}/journald
+
+  LogPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref AgentRole
+        - !Ref MasterRole
+      PolicyName: agent-log-policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+            Resource:
+              - !Sub arn:aws:logs:*:*:log-group:/determined/pedl-${UserName}/journald,
+              - !Sub arn:aws:logs:*:*:log-group:/determined/pedl-${UserName}/journald:log-stream:*
+
+  MetricPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref AgentRole
+        - !Ref MasterRole
+      PolicyName: agent-metric-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - cloudwatch:PutMetricData
+            Effect: Allow
+            Resource: "*"
 
   BastionEC2Instance:
     Type: AWS::EC2::Instance
@@ -310,6 +426,14 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: "s3:*"
+                Resource: "*"
+        - PolicyName: pedl-ec2
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
                 Resource: "*"
 
   AgentInstanceProfile:
@@ -362,7 +486,7 @@ Resources:
   MasterInstance:
     Type: AWS::EC2::Instance
     Properties:
-      SubnetId: !Ref PrivateSubnet
+      SubnetId: !Ref PrivateSubnet1
       InstanceType: !Ref MasterInstanceType
       ImageId: !Ref MasterAmiId
       KeyName: !Ref Keypair
@@ -401,6 +525,9 @@ Resources:
           checkpoint_storage:
             type: s3
             bucket: ${CheckpointBucket}
+            save_experiment_best: 0
+            save_trial_best: 1
+            save_trial_latest: 1
 
           provisioner:
             agent_docker_network: pedl
@@ -414,22 +541,53 @@ Resources:
             network_interface:
               public_ip: false
               security_group_id: ${AgentSecurityGroup.GroupId}
-              subnet_id: ${PrivateSubnet}
+              subnet_id: ${PrivateSubnet1}
             provider: aws
             root_volume_size: 200
             ssh_key_name: ${Keypair}
+            startup_script: |
+              cat << EOF > /tmp/journald-cloudwatch.conf
+              log_group = "/determined/pedl-${UserName}/journald"
+              EOF
+
+              rm /etc/journald-cloudwatch.conf
+              mv /tmp/journald-cloudwatch.conf /etc/journald-cloudwatch.conf
+              systemctl restart journald-cloudwatch
             tag_key: pedl-${UserName}
-            tag_value: pedl-agent-${UserName}
+            tag_value: pedl-${UserName}-agent
           EOF
 
           rm /usr/local/pedl/etc/master.yaml
           mv /tmp/master.yaml /usr/local/pedl/etc/master.yaml
+
+          cat << EOF > /tmp/override.conf
+          [Service]
+          Environment="PEDL_DB_HOSTNAME=${Database.Endpoint.Address}"
+          Environment="PEDL_DB_USER=postgres"
+          Environment="PEDL_DB_NAME=pedl"
+          Environment="PEDL_DB_PASSWORD=postgres"
+          EOF
+
+          mkdir /etc/systemd/system/pedl-master.service.d/
+          mv /tmp/override.conf /etc/systemd/system/pedl-master.service.d/override.conf
+
+          cat << EOF > /tmp/journald-cloudwatch.conf
+          log_group = "/determined/pedl-${UserName}/journald"
+          field_length = 1000
+          EOF
+
+          rm /etc/journald-cloudwatch.conf
+          mv /tmp/journald-cloudwatch.conf /etc/journald-cloudwatch.conf
+          systemctl restart journald-cloudwatch
+
           cd /usr/local/pedl/
           make enable-master
           --//
       Tags:
         - Key: user
           Value: !Ref UserName
+        - Key: Name
+          Value: !Sub pedl-${UserName}-master
 
   CheckpointBucket:
     Type: AWS::S3::Bucket
@@ -447,7 +605,7 @@ Outputs:
 
   PrivateSubnetId:
     Description: A list of the private subnets
-    Value: !Ref PrivateSubnet
+    Value: !Ref PrivateSubnet1
 
   BastionId:
     Description: Id of Bastion

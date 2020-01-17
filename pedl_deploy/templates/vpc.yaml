@@ -87,17 +87,6 @@ Resources:
         - Key: Name
           Value: !Sub ${UserName} Public Subnet (AZ2)
 
-#  Subnet:
-#    Type: AWS::EC2::Subnet
-#    Properties:
-#      VpcId: !Ref VPC
-#      AvailabilityZone: !Select [ 0, !GetAZs '' ]
-#      CidrBlock: !Ref SubnetCIDR
-#      MapPublicIpOnLaunch: true
-#      Tags:
-#        - Key: Name
-#          Value: !Sub ${UserName} Subnet
-
   RouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -125,6 +114,11 @@ Resources:
     Properties:
       RouteTableId: !Ref RouteTable
       SubnetId: !Ref Subnet2
+
+  CheckpointBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub pedl-${UserName}-${AWS::Region}-${AWS::AccountId}
 
   MasterSecurityGroupEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -280,6 +274,46 @@ Resources:
       VpcSecurityGroupIds:
         - !GetAtt DatabaseSecurityGroup.GroupId
 
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /determined/pedl-${UserName}/journald
+
+  LogPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref AgentRole
+        - !Ref MasterRole
+      PolicyName: agent-log-policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+            Resource:
+              - !Sub arn:aws:logs:*:*:log-group:/determined/pedl-${UserName}/journald,
+              - !Sub arn:aws:logs:*:*:log-group:/determined/pedl-${UserName}/journald:log-stream:*
+
+  MetricPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref AgentRole
+        - !Ref MasterRole
+      PolicyName: agent-metric-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - cloudwatch:PutMetricData
+            Effect: Allow
+            Resource: "*"
+
   AgentRole:
     Type: AWS::IAM::Role
     Properties:
@@ -299,6 +333,14 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: "s3:*"
+                Resource: "*"
+        - PolicyName: pedl-ec2
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
                 Resource: "*"
 
   AgentInstanceProfile:
@@ -338,6 +380,26 @@ Resources:
               - Effect: Allow
                 Action: iam:PassRole
                 Resource: !GetAtt AgentRole.Arn
+        - PolicyName: master-log-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource:
+                  - arn:aws:logs:*:*:log-group:/determined/pedl/journald
+                  - arn:aws:logs:*:*:log-group:/determined/pedl/journald:log-stream:*
+        - PolicyName: master-metric-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - cloudwatch:PutMetricData
+                Effect: Allow
+                Resource: "*"
       Tags:
         - Key: user
           Value: !Ref UserName
@@ -390,6 +452,9 @@ Resources:
           checkpoint_storage:
             type: s3
             bucket: ${CheckpointBucket}
+            save_experiment_best: 0
+            save_trial_best: 1
+            save_trial_latest: 1
 
           provisioner:
             agent_docker_network: pedl
@@ -402,13 +467,21 @@ Resources:
             max_instances: 5
             network_interface:
               public_ip: true
-              security_group_id: ${AgentSecurityGroup.GroupId}
               subnet_id: ${Subnet1}
+              security_group_id: ${AgentSecurityGroup.GroupId}
             provider: aws
             root_volume_size: 200
             ssh_key_name: ${Keypair}
+            startup_script: |
+              cat << EOF > /tmp/journald-cloudwatch.conf
+              log_group = "/determined/pedl-${UserName}/journald"
+              EOF
+
+              rm /etc/journald-cloudwatch.conf
+              mv /tmp/journald-cloudwatch.conf /etc/journald-cloudwatch.conf
+              systemctl restart journald-cloudwatch
             tag_key: pedl-${UserName}
-            tag_value: pedl-agent-${UserName}
+            tag_value: pedl-${UserName}-agent
           EOF
 
           rm /usr/local/pedl/etc/master.yaml
@@ -425,6 +498,14 @@ Resources:
           mkdir /etc/systemd/system/pedl-master.service.d/
           mv /tmp/override.conf /etc/systemd/system/pedl-master.service.d/override.conf
 
+          cat << EOF > /tmp/journald-cloudwatch.conf
+          log_group = "/determined/pedl-${UserName}/journald"
+          field_length = 1000
+          EOF
+
+          rm /etc/journald-cloudwatch.conf
+          mv /tmp/journald-cloudwatch.conf /etc/journald-cloudwatch.conf
+          systemctl restart journald-cloudwatch
           cd /usr/local/pedl/
           make enable-master
 
@@ -432,11 +513,8 @@ Resources:
       Tags:
         - Key: user
           Value: !Ref UserName
-
-  CheckpointBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub pedl-${UserName}-${AWS::Region}-${AWS::AccountId}
+        - Key: Name
+          Value: !Sub pedl-${UserName}-master
 
 Outputs:
   VPC:
