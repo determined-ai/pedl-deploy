@@ -26,6 +26,11 @@ Parameters:
     Type: String
     Description: Instance Type of Agent
 
+  UserAccessIngressCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: User preferred CIDR block for Master UI and all SSH access
+
 Resources:
   CheckpointBucket:
     Type: AWS::S3::Bucket
@@ -66,7 +71,7 @@ Resources:
       FromPort: 8080
       ToPort: 8080
       IpProtocol: tcp
-      CidrIp: 0.0.0.0/0
+      CidrIp: !Ref UserAccessIngressCidr
 
   MasterSSHIngress:
     Type: AWS::EC2::SecurityGroupIngress
@@ -75,7 +80,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 22
       ToPort: 22
-      CidrIp: 0.0.0.0/0
+      CidrIp: !Ref UserAccessIngressCidr
 
   AgentSecurityGroupEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -111,7 +116,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 22
       ToPort: 22
-      CidrIp: 0.0.0.0/0
+      CidrIp: !Ref UserAccessIngressCidr
 
   DatabaseEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -393,6 +398,10 @@ Outputs:
   MasterId:
     Description: Id of Master Agent
     Value: !Ref MasterInstance
+
+  MasterPublicIp:
+    Description: Public IP of Master Agent
+    Value: !GetAtt MasterInstance.PublicIp
 
   MasterSecurityGroupId:
     Description: Id of Master Security Group
