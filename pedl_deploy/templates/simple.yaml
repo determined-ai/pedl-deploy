@@ -26,7 +26,7 @@ Parameters:
     Type: String
     Description: Instance Type of Agent
 
-  UserAccessIngress:
+  UserAccessIngressCidr:
     Type: String
     Default: 0.0.0.0/0
     Description: User preferred CIDR block for Master UI and all SSH access
@@ -71,7 +71,7 @@ Resources:
       FromPort: 8080
       ToPort: 8080
       IpProtocol: tcp
-      CidrIp: !Ref UserAccessIngress
+      CidrIp: !Ref UserAccessIngressCidr
 
   MasterSSHIngress:
     Type: AWS::EC2::SecurityGroupIngress
@@ -80,7 +80,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 22
       ToPort: 22
-      CidrIp: !Ref UserAccessIngress
+      CidrIp: !Ref UserAccessIngressCidr
 
   AgentSecurityGroupEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -116,7 +116,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 22
       ToPort: 22
-      CidrIp: !Ref UserAccessIngress
+      CidrIp: !Ref UserAccessIngressCidr
 
   DatabaseEgress:
     Type: AWS::EC2::SecurityGroupEgress
