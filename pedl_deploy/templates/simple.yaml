@@ -399,6 +399,10 @@ Outputs:
     Description: Id of Master Agent
     Value: !Ref MasterInstance
 
+  MasterPublicIp:
+    Description: Public IP of Master Agent
+    Value: !GetAtt MasterInstance.PublicIp
+
   MasterSecurityGroupId:
     Description: Id of Master Security Group
     Value: !GetAtt MasterSecurityGroup.GroupId
